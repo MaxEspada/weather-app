@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { fetchWeather } from './redux/weatherSlice'
 import './App.css'
@@ -8,7 +8,13 @@ import { getWeatherBackground } from './utils/backgroundSelector'
 const uzbekistanRegions = [
   'Tashkent', 'Samarkand', 'Bukhara', 'Khiva', 'Fergana', 
   'Andijan', 'Namangan', 'Nukus', 'Jizzakh', 'Kashkadarya'
-];
+]
+
+
+function isNight () {
+  const hours = new Date().getHours()
+  return hours < 6 || hours >= 18
+}
 
 
 export default function App() {
@@ -16,36 +22,45 @@ export default function App() {
   const weather = useSelector(state => state.weather.data)
   const [location, setLocation] = useState('Tashkent')
   const [query, setQuery] = useState('')
-
-const handleSearch = useCallback((e) => {
-  e.preventDefault()
-  if (!query) return
-
-  const normalizedQuery = query.trim().toLowerCase()
-  const matchedRegion = uzbekistanRegions.find(region => region.toLowerCase() === normalizedQuery)
-
-  if (matchedRegion) {
-    setLocation(matchedRegion)
-    setQuery('')
-  } else {
-    alert('Регион не найден. Пожалуйста, выберите из списка.')
-  }
-}, [query])
+  const [currentHour, setCurrentHour] = useState(new Date().getHours())
 
 
-  const backgroundStyle = useCallback({
-    backgroundImage: `url(${getWeatherBackground(weather?.weather[0].main)})`,
+  const backgroundStyle = useMemo(() => ({
+    backgroundImage: `url(${getWeatherBackground(weather?.weather?.[0]?.main, currentHour < 6 || currentHour >= 18)})`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat'
-  },[weather])
+  }), [weather, currentHour])
+
+  const handleSearch = useCallback((e) => {
+    e.preventDefault()
+    if (!query) return
+
+    const normalizedQuery = query.trim().toLowerCase()
+    const matchedRegion = uzbekistanRegions.find(region => region.toLowerCase() === normalizedQuery)
+
+    if (matchedRegion) {
+      setLocation(matchedRegion)
+      setQuery('')
+    } else {
+      alert('Регион не найден. Пожалуйста, выберите из списка.')
+    }
+  }, [query])
+
 
     useEffect(() => {
-    dispatch(fetchWeather(location))
-  }, [dispatch, location])
+      dispatch(fetchWeather(location))
+    }, [dispatch, location])
 
+    useEffect(() => {
+      const interval = setInterval(() => {
+        const hour = new Date().getHours()
+        setCurrentHour(prev => (prev !== hour ? hour : prev))
+      }, 5 * 60 * 1000)
 
-  
+      return () => clearInterval(interval)
+    }, [])
+
 
   return <div className={"app"}>
       <div className="weather-container" style={backgroundStyle}>
